@@ -11,24 +11,30 @@ class GeoSwitch {
     private static $user_ip = null;
     private static $record = null;
     private static $useKm = true;
-	
+    private static $cookie_name = 'geoswitch_locale';
+    private static $state_cookie = null;
+
 	public static function init() {
         if (self::$initialized) {
             return;
         }
         self::$initialized = true;
-        
+
         self::$user_ip = self::get_user_ip();
 
-        try {
-            $opt = get_option('geoswitch_options');
-            $useKM = ($opt['units'] == 'km');
-            $database = GEOSWITCH_PLUGIN_DIR . 'database/' . $opt['database_name'];
-            $reader = new GeoIp2\Database\Reader($database);
+        self::$state_cookie = self::get_state_cookie();
 
-            self::$record = $reader->city(self::$user_ip);
-        } catch (Exception $e) {
-            self::$record = null;
+        if(is_null(self::$state_cookie)){
+            try {
+                $opt = get_option('geoswitch_options');
+                $useKM = ($opt['units'] == 'km');
+                $database = GEOSWITCH_PLUGIN_DIR . 'database/' . $opt['database_name'];
+                $reader = new GeoIp2\Database\Reader($database);
+
+                self::$record = $reader->city(self::$user_ip);
+            } catch (Exception $e) {
+                self::$record = null;
+            }
         }
 
         add_shortcode('geoswitch', array( 'GeoSwitch', 'switch_block' ));
@@ -51,6 +57,18 @@ class GeoSwitch {
         return count($arr) == 3  
             ? substr($arr[2], 0, intval($arr[1]))
             : '';
+    }
+
+    public static function existing_state_cookie(){
+        return isset($_COOKIE[self::$cookie_name])
+    }
+
+    public static function get_state_cookie(){
+        return self::existing_state_cookie() ? $_COOKIE[self::$cookie_name]
+    }
+
+    public static function set_state_cookie($cookie_data){
+        setcookie(self::$cookie_name, $cookie_data, time() + (86400 * 3000), "/"); // 86400 = 1 day
     }
 
 	public static function switch_case($atts, $content) {
