@@ -32,6 +32,10 @@ class GeoSwitch {
                 $reader = new GeoIp2\Database\Reader($database);
 
                 self::$record = $reader->city(self::$user_ip);
+                $state_info = array();
+                $state_info['name'] = self::get_state(null, null);
+                $state_info['code'] = self::get_state_code(null, null);
+                self::set_state_cookie($state_info);
             } catch (Exception $e) {
                 self::$record = null;
             }
@@ -54,15 +58,16 @@ class GeoSwitch {
     }
 
     public static function existing_state_cookie(){
-        return isset($_COOKIE[self::$cookie_name])
+        return isset($_COOKIE[self::$cookie_name]);
     }
 
     public static function get_state_cookie(){
-        return self::existing_state_cookie() ? $_COOKIE[self::$cookie_name]
+        return self::existing_state_cookie() ? unserialize($_COOKIE[self::$cookie_name]) : array();
     }
 
     public static function set_state_cookie($cookie_data){
-        setcookie(self::$cookie_name, $cookie_data, time() + (86400 * 3000), "/"); // 86400 = 1 day
+        $data = serialize($cookie_data)
+        setcookie(self::$cookie_name, $data, time() + (86400 * 3000), "/"); // 86400 = 1 day
     }
 
 	public static function switch_case($atts, $content) {
@@ -89,14 +94,22 @@ class GeoSwitch {
         if (is_null(self::$record)) {
             return '?';
         }
-        return self::$record->mostSpecificSubdivision->name;
+        if(self::existing_state_cookie()){
+            return self::get_state_cookie()['name'];
+        }else{
+            return self::$record->mostSpecificSubdivision->name;
+        }
     }
 
     public static function get_state_code($atts, $content) {
         if (is_null(self::$record)) {
             return '?';
         }
-        return self::$record->mostSpecificSubdivision->isoCode;
+        if(self::existing_state_cookie()){
+            return self::get_state_cookie()['code'];
+        }else{
+            return self::$record->mostSpecificSubdivision->isoCode;
+        }
     }
 
     public static function activation() {
